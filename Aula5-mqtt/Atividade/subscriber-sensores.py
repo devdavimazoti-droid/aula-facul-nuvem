@@ -18,7 +18,7 @@ topicCO2 = "sensorMz/CO2"
 
 clientes_conectados = set()
 
-loop = asyncio.get_event_loop()
+loop = None  # será preenchido quando o loop de fato começar a rodar
 
 
 async def lidar_com_conexao(websocket):
@@ -38,13 +38,19 @@ async def enviar_dados_para_o_front(mensagem_json):
     # Se a lista estiver vazia (ninguém com o site aberto), não fazemos nada
     if not clientes_conectados:
         return
-    
-    # Se tiver gente conectada, mandamos o JSON para todo mundo
-    for cliente in clientes_conectados:
-        await cliente.send(mensagem_json)
+
+    # Copia a lista antes de iterar, para evitar erro caso alguém
+    # conecte/desconecte durante o envio
+    for cliente in list(clientes_conectados):
+        try:
+            await cliente.send(mensagem_json)
+        except websockets.exceptions.ConnectionClosed:
+            pass
 
 
 async def iniciar_websocket():
+    global loop
+    loop = asyncio.get_running_loop()  # pega o loop que está DE FATO rodando
     async with websockets.serve(lidar_com_conexao, "localhost", 8765):
         await asyncio.Future()  # Trava aqui e mantém o servidor rodando
 
@@ -61,28 +67,26 @@ def on_message(client, userdata, msg):
     print(f"Timestamp: {dados['timestamp']}")
     print("-----------------------")
 
-    asyncio.run_coroutine_threadsafe(enviar_dados_para_o_front(mensagem), loop)
+    if loop is not None:
+        asyncio.run_coroutine_threadsafe(enviar_dados_para_o_front(mensagem), loop)
 
     response = requests.get(f"https://api.thingspeak.com/update?api_key={API_KEY}&field{dados['sensor']}={dados['medicao']}")
     print(f"Resposta da API: {response}\n")
 
     time.sleep(15)
 
-    
+
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
 client.connect(broker, port, 60)
 
-def assinandoTopico(topic):
-    client.subscribe(topic)
-    client.on_message = on_message
 
-assinandoTopico(topicTemp)
-assinandoTopico(topicUmid)
-assinandoTopico(topicPres)
-assinandoTopico(topicUmidSolo)
-assinandoTopico(topicCO2)
+client.subscribe([(topicTemp, 0), (topicUmid, 0), (topicPres, 0), (topicUmidSolo, 0), (topicCO2, 0)])
+client.on_message = on_message
+
 
 client.loop_start()
+
+
 asyncio.run(iniciar_websocket())

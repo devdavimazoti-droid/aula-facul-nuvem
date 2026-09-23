@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Sensores IoT</title>
+    <!-- 1. IMPORTANDO O CHART.JS VIA CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #f4f7f6;
@@ -22,10 +24,7 @@
             flex-direction: column;
             align-items: center;
         }
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        header { text-align: center; margin-bottom: 20px; }
         #status {
             display: inline-block;
             padding: 5px 15px;
@@ -37,10 +36,11 @@
         }
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
             width: 100%;
             max-width: 1200px;
+            margin-bottom: 30px;
         }
         .card {
             background-color: var(--card-bg);
@@ -48,37 +48,27 @@
             padding: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             text-align: center;
-            transition: transform 0.2s;
         }
-        .card:hover {
-            transform: translateY(-5px);
+        .valor { font-size: 2.2em; font-weight: bold; color: var(--primary); margin: 10px 0; }
+        .unidade { font-size: 0.4em; color: var(--text-muted); }
+        .timestamp { font-size: 0.8em; color: #aaa; margin-top: 10px; }
+        
+        /* Área para os gráficos */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
         }
-        .card h3 {
-            margin-top: 0;
-            color: var(--text-muted);
-            font-size: 1.2em;
+        .chart-container {
+            width: 100%;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-sizing: border-box;
         }
-        .valor {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: var(--primary);
-            margin: 10px 0;
-        }
-        .unidade {
-            font-size: 0.4em;
-            color: var(--text-muted);
-        }
-        .timestamp {
-            font-size: 0.8em;
-            color: #aaa;
-            margin-top: 15px;
-        }
-        /* Cores específicas para cada sensor */
-        #card-temp .valor { color: #e74c3c; }
-        #card-umid .valor { color: #3498db; }
-        #card-pres .valor { color: #9b59b6; }
-        #card-solo .valor { color: #27ae60; }
-        #card-co2 .valor { color: #f39c12; }
     </style>
 </head>
 <body>
@@ -88,43 +78,104 @@
         <div id="status">Conectando ao WebSocket...</div>
     </header>
 
+    <!-- CARDS DOS SENSORES -->
     <div class="dashboard">
-        <!-- Cards dos Sensores -->
-        <div class="card" id="card-temp">
+        <div class="card">
             <h3>🌡️ Temperatura</h3>
             <div class="valor" id="val-temp">-- <span class="unidade">°C</span></div>
-            <div class="timestamp" id="time-temp">Aguardando dados...</div>
+            <div class="timestamp" id="time-temp">Aguardando...</div>
         </div>
-
-        <div class="card" id="card-umid">
-            <h3>💧 Umidade do Ar</h3>
+        <div class="card">
+            <h3>💧 Umidade Ar</h3>
             <div class="valor" id="val-umid">-- <span class="unidade">%</span></div>
-            <div class="timestamp" id="time-umid">Aguardando dados...</div>
+            <div class="timestamp" id="time-umid">Aguardando...</div>
         </div>
-
-        <div class="card" id="card-pres">
-            <h3>🌬️ Pressão Atmosférica</h3>
+        <div class="card">
+            <h3>🌬️ Pressão</h3>
             <div class="valor" id="val-pres">-- <span class="unidade">hPa</span></div>
-            <div class="timestamp" id="time-pres">Aguardando dados...</div>
+            <div class="timestamp" id="time-pres">Aguardando...</div>
         </div>
-
-        <div class="card" id="card-solo">
-            <h3>🌱 Umidade do Solo</h3>
+        <div class="card">
+            <h3>🌱 Umidade Solo</h3>
             <div class="valor" id="val-solo">-- <span class="unidade">%</span></div>
-            <div class="timestamp" id="time-solo">Aguardando dados...</div>
+            <div class="timestamp" id="time-solo">Aguardando...</div>
         </div>
-
-        <div class="card" id="card-co2">
-            <h3>💨 Nível de CO2</h3>
+        <div class="card">
+            <h3>💨 Nível CO2</h3>
             <div class="valor" id="val-co2">-- <span class="unidade">ppm</span></div>
-            <div class="timestamp" id="time-co2">Aguardando dados...</div>
+            <div class="timestamp" id="time-co2">Aguardando...</div>
+        </div>
+    </div>
+
+    <!-- 2. CONTAINERS COM AS TAGS CANVAS DOS GRÁFICOS -->
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3>📈 Histórico de Temperatura (°C)</h3>
+            <canvas id="graficoTemp"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>📈 Histórico de Umidade Ar (%)</h3>
+            <canvas id="graficoUmid"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>📈 Histórico de Pressão (hPa)</h3>
+            <canvas id="graficoPres"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>📈 Histórico de Umidade Solo (%)</h3>
+            <canvas id="graficoSolo"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>📈 Histórico de Nível CO2 (ppm)</h3>
+            <canvas id="graficoCO2"></canvas>
         </div>
     </div>
 
     <script>
-        // Conectar ao servidor Python via WebSocket
         const socket = new WebSocket("ws://localhost:8765");
         const divStatus = document.getElementById("status");
+
+        // 3. INICIALIZANDO O CHART.JS PARA CADA SENSOR
+        function criarGrafico(canvasId, label, cor) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [], // Horários (Eixo X)
+                    datasets: [{
+                        label: label,
+                        data: [], // Valores (Eixo Y)
+                        borderColor: cor,
+                        backgroundColor: cor + '1a',
+                        fill: true,
+                        tension: 0.3 // Deixa a linha curvada e suave
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+        }
+
+        const graficoTemperatura = criarGrafico('graficoTemp', 'Temperatura (°C)', '#e74c3c');
+        const graficoUmidade = criarGrafico('graficoUmid', 'Umidade Ar (%)', '#3498db');
+        const graficoPressao = criarGrafico('graficoPres', 'Pressão (hPa)', '#9b59b6');
+        const graficoUmidadeSolo = criarGrafico('graficoSolo', 'Umidade Solo (%)', '#27ae60');
+        const graficoCO2 = criarGrafico('graficoCO2', 'Nível CO2 (ppm)', '#f39c12');
+
+        // Adiciona um ponto no gráfico, limitando aos últimos 10 pontos
+        function atualizarGrafico(grafico, label, valor) {
+            grafico.data.labels.push(label);
+            grafico.data.datasets[0].data.push(valor);
+            if (grafico.data.labels.length > 10) {
+                grafico.data.labels.shift();
+                grafico.data.datasets[0].data.shift();
+            }
+            grafico.update();
+        }
 
         socket.onopen = () => {
             divStatus.textContent = "🟢 Conectado ao Servidor (Ao Vivo)";
@@ -133,43 +184,47 @@
         };
 
         socket.onclose = () => {
-            divStatus.textContent = "🔴 Desconectado. Verifique o Python.";
+            divStatus.textContent = "🔴 Desconectado.";
             divStatus.style.backgroundColor = "#f8d7da";
             divStatus.style.color = "#721c24";
         };
 
         socket.onmessage = (event) => {
             try {
-                // Tenta converter a mensagem recebida para JSON
                 const dados = JSON.parse(event.data);
-                
-                // Mapeia o tópico/sensor para atualizar o card correto na tela
                 const agora = new Date().toLocaleTimeString();
+                const medida = (dados.medida || "").toString().toLowerCase();
+                const valor = dados.medicao;
+                const unidade = dados.unidade || "";
 
-                // Supondo que o JSON venha com a chave 'sensor' indicando de qual é
-                if (dados.sensor === "temperatura") {
-                    document.getElementById("val-temp").innerHTML = `${dados.medicao} <span class="unidade">${dados.unidade}</span>`;
-                    document.getElementById("time-temp").textContent = `Atualizado às ${agora}`;
-                } 
-                else if (dados.sensor === "umidade") {
-                    document.getElementById("val-umid").innerHTML = `${dados.medicao} <span class="unidade">${dados.unidade}</span>`;
-                    document.getElementById("time-umid").textContent = `Atualizado às ${agora}`;
-                }
-                else if (dados.sensor === "pressao") {
-                    document.getElementById("val-pres").innerHTML = `${dados.medicao} <span class="unidade">${dados.unidade}</span>`;
-                    document.getElementById("time-pres").textContent = `Atualizado às ${agora}`;
-                }
-                else if (dados.sensor === "umidadeSolo") {
-                    document.getElementById("val-solo").innerHTML = `${dados.medicao} <span class="unidade">${dados.unidade}</span>`;
+                if (medida.includes("solo")) {
+                    document.getElementById("val-solo").innerHTML = `${valor} <span class="unidade">${unidade}</span>`;
                     document.getElementById("time-solo").textContent = `Atualizado às ${agora}`;
+                    atualizarGrafico(graficoUmidadeSolo, agora, valor);
                 }
-                else if (dados.sensor === "CO2") {
-                    document.getElementById("val-co2").innerHTML = `${dados.medicao} <span class="unidade">${dados.unidade}</span>`;
+                else if (medida.includes("umid")) {
+                    document.getElementById("val-umid").innerHTML = `${valor} <span class="unidade">${unidade}</span>`;
+                    document.getElementById("time-umid").textContent = `Atualizado às ${agora}`;
+                    atualizarGrafico(graficoUmidade, agora, valor);
+                }
+                else if (medida.includes("temp")) {
+                    document.getElementById("val-temp").innerHTML = `${valor} <span class="unidade">${unidade}</span>`;
+                    document.getElementById("time-temp").textContent = `Atualizado às ${agora}`;
+                    atualizarGrafico(graficoTemperatura, agora, valor);
+                } 
+                else if (medida.includes("pres")) {
+                    document.getElementById("val-pres").innerHTML = `${valor} <span class="unidade">${unidade}</span>`;
+                    document.getElementById("time-pres").textContent = `Atualizado às ${agora}`;
+                    atualizarGrafico(graficoPressao, agora, valor);
+                }
+                else if (medida.includes("co2")) {
+                    document.getElementById("val-co2").innerHTML = `${valor} <span class="unidade">${unidade}</span>`;
                     document.getElementById("time-co2").textContent = `Atualizado às ${agora}`;
+                    atualizarGrafico(graficoCO2, agora, valor);
                 }
 
             } catch (error) {
-                console.error("Erro ao processar mensagem do WebSocket:", error);
+                console.error("Erro ao processar WebSocket:", error);
             }
         };
     </script>
